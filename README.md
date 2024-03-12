@@ -4,12 +4,12 @@ mfw
 
 ### Peterson's Algorithm
 
-[Code](./petersons.hny) | [Output](./petersons.htm)
+[Code](./petersons.hny) | [Output](./petersons.png)
 
 ### Spin Lock
 
-[Code](./spinlock.hny) | [Output](./spinlock.htm)
+[Code](./spinlock.hny) | [Output](./spinlock.png)
 
 ### Stop-Go Lock
 
-[Code](./stopgolock.hny) | [Output](./stopgolock.htm)
+[Code](./stopgolock.hny) | [Output](./stopgolock.png)
