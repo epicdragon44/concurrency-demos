@@ -1,0 +1,66 @@
+# This approach to locks uses context switching! That's better than spinning.
+# `r = stop p` stops the current thread and stores its context in !p
+# `go (!p) r` adds a thread with the context in !p to the run queue.
+#             once the thread starts running, it resumes from the stop expression, and eventually writes its result to r.
+
+# Note: similar to C: p->f is shorthand for (!p).f
+
+# Lock API ========================================
+
+def Lock() returns result:
+  result = {
+    .acquired: False, # whether the lock is acquired
+    .suspended: []    # a queue of contexts (FIFO)
+  }
+
+def AcquireLock(lock):
+  atomically:
+    if (lock->acquired): # if the lock is already acquired
+      stop ?lock->suspended[len (lock->suspended)] # stop the current thread and store its context in the lock's suspension queue
+    else: # if the lock is not acquired atm
+      lock->acquired = True # just take it
+
+def ReleaseLock(lock):
+  atomically:
+    assert lock->acquired # precondition: the lock is acquired
+    if ((len (lock->suspended)) > 0): # if there are threads waiting for the lock
+      go (lock->suspended[0]) None # start the first thread in the queue
+      del lock->suspended[0] # remove the thread from the queue
+    else: # if there are no threads waiting for the lock
+      lock->acquired = False # release the lock
+
+# Example ======================================== Same as in `spinlock.hny`
+
+const N_THREADS = 3
+
+num_threads_in_crit_sect = 0
+invariant num_threads_in_crit_sect in {0, 1}
+
+done = {:}
+for i in {1..N_THREADS}:
+  done[i] = False
+
+demo_output = ""
+
+thelock = Lock()
+
+def thread(pid):
+  while not done[pid]:
+    AcquireLock(?thelock) # `?thelock` is used to specify that we pass the pointer to the lock, rather than the lock itself
+
+    atomically num_threads_in_crit_sect = num_threads_in_crit_sect + 1
+    # begin critical section
+    global demo_output
+    demo_output += (str pid)
+    print demo_output # note this only prints pid!! -- not the whole accumulated string
+                      # this is because the print statement is NOT atomic!
+    # end critical section
+    atomically num_threads_in_crit_sect = num_threads_in_crit_sect - 1
+
+    done[pid] = True
+    ReleaseLock(?thelock)
+
+for i in {1..N_THREADS}:
+  spawn thread(i)
+
+# OUTPUT IN `stopgolock.htm`

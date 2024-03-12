@@ -1,0 +1,67 @@
+# This won't work for when threads on the same core need to synchronize
+# - If the OS uses pre-emption (interrupting a long-running thread to run a higher-priority (more interactive) thread),
+#   this approach wastes CPU cycles as a thread waits on its spinlock.
+# - If the OS doesn't use pre-emption, this approach can lead to priority inversion
+#   (a high-priority thread is blocked by a low-priority thread that holds the spinlock, and no thread can make progress).
+
+# Library functions ===========================================================
+
+# test and set is a primitive operation that atomically sets a pointer to a value and returns the old value it held.
+def test_and_set(s) returns result: # `returns` is used to specify the variable that should be returned by the function, and which will be assigned to over the course of the function
+  atomically: # `atomically` is used to specify that the following block of code executes all at once
+    result = !s # `!s` is used to read the value of the pointer `s`
+    !s = True
+
+# atomic_store is a primitive operation that atomically sets a pointer to a value.
+def atomic_store(p, v):
+  atomically:
+    !p = v
+
+# Lock API ====================================================================
+
+# You'll see by using a lock, unlike for Peterson's, threads always enter and exit the lock in the same order as they request it (FIFO).
+
+def Lock() returns result:
+  result = False
+
+def AcquireLock(lock):
+  while test_and_set(lock):
+    pass
+
+def ReleaseLock(lock):
+  atomic_store(lock, False)
+
+# Example usage ===============================================================
+
+const N_THREADS = 3
+
+num_threads_in_crit_sect = 0
+invariant num_threads_in_crit_sect in {0, 1}
+
+done = {:}
+for i in {1..N_THREADS}:
+  done[i] = False
+
+demo_output = ""
+
+thelock = Lock()
+
+def thread(pid):
+  while not done[pid]:
+    AcquireLock(?thelock) # `?thelock` is used to specify that we pass the pointer to the lock, rather than the lock itself
+
+    atomically num_threads_in_crit_sect = num_threads_in_crit_sect + 1
+    # begin critical section
+    global demo_output
+    demo_output += (str pid)
+    print demo_output
+    # end critical section
+    atomically num_threads_in_crit_sect = num_threads_in_crit_sect - 1
+
+    done[pid] = True
+    ReleaseLock(?thelock)
+
+for i in {1..N_THREADS}:
+  spawn thread(i)
+
+# OUTPUT IN `spinlock.htm`

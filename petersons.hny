@@ -1,0 +1,56 @@
+# show two possible runs: one unsafe, one safe
+run_safely = choose({True, False}) # note this variable is read-only, so it's safe to read it from multiple threads without any fancy shenanigans
+print "Run with Peterson's: " + (str run_safely)
+
+# sequentially update a global value tracking how many threads are created
+thread_count = 0
+
+# demonstrate race conditions that occur when threads UNSAFELY access shared vars
+sequential unsafe_demo # here, `sequential` prevents a basic data access race condition! the harmony compiler disallows this
+unsafe_demo = "" 
+
+# SAFELY shared critical resources between threads
+test_output = ""
+
+# assert that at most two threads are created with `invariant`
+invariant thread_count in {0, 1, 2}
+
+sequential flags, turn, done # def keyword: `sequential` means cache-coherent, atomic read/writes (similar to `volatile` in Java)
+flags = [False, False] # peterson's: indicates intent to enter the critical section
+turn = choose({0, 1}) # peterson's: indicates which thread should enter the critical section first
+done = [False, False] # indicates that a thread ran once (if you don't use such a variable, the threads will run forever)
+
+def thread(pid): # concurrently run a thread
+
+    global unsafe_demo, test_output # here, global isn't strictly necessary (there is no local var with the same name)
+    unsafe_demo += str pid # unsafe
+    if not run_safely:
+      print unsafe_demo
+
+    while not done[pid]: # spin until the thread executed once!
+        flags[pid] = True # peterson's: indicate that you want to enter the critical section
+        turn = 1 - pid # peterson's: give the other thread a chance to enter the critical section first though
+        await (not flags[1-pid]) or (turn==pid) # def keyword: `await` makes a thread wait until the condition is true
+                                                # peterson's: wait until the other thread is ready or it's your turn
+
+        # peterson's: start critical section here!        
+        test_output += str pid
+        if run_safely:
+          print test_output
+        # peterson's: end critical section here!
+
+        done[pid] = True # indicate that the thread is done. if you don't do this, the threads will run forever! (which is what the slides do... because they don't print intermediate results, so the resulting model doesn't care)
+        flags[pid] = False # petersen's: indicate that you're done with the critical section
+
+def spawn_thread(pid): # sequentially spawn a thread
+    global thread_count # def keyword: `global` means to access the global instance of the variable (not a locally scoped one)
+    thread_count += 1
+    print "Total threads: " + (str thread_count)
+    spawn thread(pid)
+
+# run program
+
+spawn_thread(0)
+spawn_thread(1)
+
+# OUTPUT IN `petersons.htm`
