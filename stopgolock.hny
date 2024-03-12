@@ -52,8 +52,7 @@ def thread(pid):
     # begin critical section
     global demo_output
     demo_output += (str pid)
-    print demo_output # note this only prints pid!! -- not the whole accumulated string
-                      # this is because the print statement is NOT atomic!
+    print demo_output
     # end critical section
     atomically num_threads_in_crit_sect = num_threads_in_crit_sect - 1
 
